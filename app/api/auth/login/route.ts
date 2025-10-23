@@ -1,7 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getDatabase } from "@/lib/mongodb"
-import { createToken } from "@/lib/auth"
 import bcrypt from "bcryptjs"
+import { sendOtpEmail } from "@/lib/email"
+import { ObjectId } from "mongodb"
+
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString() // 6-digit
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,37 +29,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const token = await createToken({
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      sector: user.sector,
-      district: user.district,
-      province: user.province,
-    })
+    // Generate OTP, hash it, store hash with expiry (10 minutes)
+    const otp = generateOtp()
+    const otpExpires = new Date(Date.now() + 1000 * 60 * 10) // 10 minutes
+    const otpHash = await bcrypt.hash(otp, 10)
 
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user._id.toString(),
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        sector: user.sector,
-        district: user.district,
-        province: user.province,
-      },
-    })
+    await db.collection("users").updateOne(
+      { _id: new ObjectId(user._id) },
+      { $set: { otpHash, otpExpires, lastOtpSentAt: new Date() } }
+    )
 
-    response.cookies.set("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    })
+    // Send OTP email (best-effort)
+    try {
+      await sendOtpEmail(user.email, otp, user.name || "")
+    } catch (e) {
+      console.error("Failed to send OTP email:", e)
+      // continue — still respond that OTP was (attempted) sent so the front-end can show verification
+    }
 
-    return response
+    return NextResponse.json({ success: true, otpSent: true })
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
