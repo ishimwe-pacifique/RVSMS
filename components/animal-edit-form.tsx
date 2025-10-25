@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { AlertCircle } from "lucide-react"
 import { rwandaProvinces } from "@/lib/rwanda-locations"
+import { toast } from "sonner"
 
 interface User {
   province?: string
@@ -19,21 +18,11 @@ interface User {
   sector?: string
 }
 
-export function AnimalRegistrationForm({ user }: { user: User }) {
+export function AnimalEditForm({ animalId, user }: { animalId: string; user: User }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [fetchLoading, setFetchLoading] = useState(true)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const [ownerInfo, setOwnerInfo] = useState({
-    ownerName: "",
-    ownerContact: "",
-    ownerAddress: "",
-    province: user.province || "",
-    district: user.district || "",
-    sector: user.sector || "",
-    cell: "",
-    village: "",
-  })
   const [formData, setFormData] = useState({
     species: "",
     breed: "",
@@ -44,27 +33,68 @@ export function AnimalRegistrationForm({ user }: { user: User }) {
     ownerName: "",
     ownerContact: "",
     ownerAddress: "",
-    province: user.province || "",
-    district: user.district || "",
-    sector: user.sector || "",
+    province: "",
+    district: "",
+    sector: "",
     cell: "",
     village: "",
     latitude: "",
     longitude: "",
+    healthStatus: "",
   })
 
   const selectedProvince = rwandaProvinces.find((p) => p.name === formData.province)
   const selectedDistrict = selectedProvince?.districts.find((d) => d.name === formData.district)
 
+  useEffect(() => {
+    fetchAnimal()
+  }, [animalId])
+
+  const fetchAnimal = async () => {
+    try {
+      const response = await fetch(`/api/animals/${animalId}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch animal")
+      }
+
+      const animal = data.animal
+      setFormData({
+        species: animal.species || "",
+        breed: animal.breed || "",
+        age: animal.age?.toString() || "",
+        sex: animal.sex || "",
+        color: animal.color || "",
+        identificationMarks: animal.identificationMarks || "",
+        ownerName: animal.ownerName || "",
+        ownerContact: animal.ownerContact || "",
+        ownerAddress: animal.ownerAddress || "",
+        province: animal.province || "",
+        district: animal.district || "",
+        sector: animal.sector || "",
+        cell: animal.cell || "",
+        village: animal.village || "",
+        latitude: animal.latitude?.toString() || "",
+        longitude: animal.longitude?.toString() || "",
+        healthStatus: animal.healthStatus || "",
+      })
+    } catch (error) {
+      console.error("Failed to fetch animal:", error)
+      toast.error("Failed to load animal data")
+    } finally {
+      setFetchLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setSuccess("")
     setLoading(true)
 
     try {
-      const response = await fetch("/api/animals", {
-        method: "POST",
+      const response = await fetch(`/api/animals/${animalId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
@@ -72,44 +102,27 @@ export function AnimalRegistrationForm({ user }: { user: User }) {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || "Registration failed")
+        setError(data.error || "Update failed")
         setLoading(false)
         return
       }
 
-      setOwnerInfo({
-        ownerName: formData.ownerName,
-        ownerContact: formData.ownerContact,
-        ownerAddress: formData.ownerAddress,
-        province: formData.province,
-        district: formData.district,
-        sector: formData.sector,
-        cell: formData.cell,
-        village: formData.village,
-      })
-
-      setSuccess(`Animal registered successfully! Animal ID: ${data.animalId}`)
-      setLoading(false)
+      toast.success("Animal updated successfully")
+      router.push("/animals")
     } catch (err) {
       setError("An error occurred. Please try again.")
       setLoading(false)
     }
   }
 
-  const handleAddAnother = () => {
-    setFormData({
-      species: "",
-      breed: "",
-      age: "",
-      sex: "",
-      color: "",
-      identificationMarks: "",
-      ...ownerInfo,
-      latitude: "",
-      longitude: "",
-    })
-    setSuccess("")
-    setError("")
+  if (fetchLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-slate-500">
+          Loading animal data...
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -119,13 +132,6 @@ export function AnimalRegistrationForm({ user }: { user: User }) {
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-2">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <span className="text-sm">{error}</span>
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <span className="text-sm">{success}</span>
           </div>
         )}
 
@@ -209,6 +215,26 @@ export function AnimalRegistrationForm({ user }: { user: User }) {
                   placeholder="e.g., Black & White"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="healthStatus">Health Status *</Label>
+              <Select
+                value={formData.healthStatus}
+                onValueChange={(value) => setFormData({ ...formData, healthStatus: value })}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select health status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="healthy">Healthy</SelectItem>
+                  <SelectItem value="sick">Sick</SelectItem>
+                  <SelectItem value="under_treatment">Under Treatment</SelectItem>
+                  <SelectItem value="recovered">Recovered</SelectItem>
+                  <SelectItem value="deceased">Deceased</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -386,20 +412,9 @@ export function AnimalRegistrationForm({ user }: { user: User }) {
           <Button type="button" variant="outline" onClick={() => router.back()} className="flex-1">
             Cancel
           </Button>
-          {success ? (
-            <>
-              <Button type="button" onClick={handleAddAnother} className="flex-1 bg-blue-600 hover:bg-blue-700">
-                Add Another Animal
-              </Button>
-              <Button type="button" onClick={() => router.push("/animals")} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
-                View All Animals
-              </Button>
-            </>
-          ) : (
-            <Button type="submit" disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
-              {loading ? "Registering..." : "Register Animal"}
-            </Button>
-          )}
+          <Button type="submit" disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+            {loading ? "Updating..." : "Update Animal"}
+          </Button>
         </div>
       </div>
     </form>

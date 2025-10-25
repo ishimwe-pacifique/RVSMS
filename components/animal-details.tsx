@@ -4,10 +4,12 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Edit, MapPin, User, Calendar, Activity } from "lucide-react"
+import { Edit, MapPin, User, Calendar, Activity, ArrowLeft } from "lucide-react"
+import { useRouter } from "next/navigation"
 import type { Animal } from "@/lib/types"
 
 export function AnimalDetails({ animalId }: { animalId: string }) {
+  const router = useRouter()
   const [animal, setAnimal] = useState<Animal | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -63,19 +65,31 @@ export function AnimalDetails({ animalId }: { animalId: string }) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-slate-900">{animal.animalId}</h1>
-            <Badge className={getHealthStatusColor(animal.healthStatus)}>{animal.healthStatus.replace("_", " ")}</Badge>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => router.back()} className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-slate-900">{animal.animalId}</h1>
+              <Badge className={getHealthStatusColor(animal.healthStatus)}>{animal.healthStatus.replace("_", " ")}</Badge>
+            </div>
+            <p className="text-slate-600">
+              {animal.species} - {animal.breed}
+            </p>
           </div>
-          <p className="text-slate-600">
-            {animal.species} - {animal.breed}
-          </p>
         </div>
-        <Button variant="outline" className="gap-2 bg-transparent">
-          <Edit className="w-4 h-4" />
-          Edit Details
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            className="gap-2 bg-transparent"
+            onClick={() => router.push(`/animals/${animal._id}/edit`)}
+          >
+            <Edit className="w-4 h-4" />
+            Edit Details
+          </Button>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">

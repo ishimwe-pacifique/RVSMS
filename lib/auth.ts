@@ -8,10 +8,11 @@ export interface User {
   id: string
   email: string
   name: string
-  role: "veterinarian" | "admin"
+  role: "veterinarian" | "admin" | "super_admin"
   sector?: string
   district?: string
   province?: string
+  permissions?: string[]
 }
 
 export async function createToken(user: User): Promise<string> {

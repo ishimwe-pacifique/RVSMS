@@ -42,7 +42,14 @@ export default function LoginPage() {
         return
       }
 
-      // Move to OTP verification step
+      // Check if it's superadmin login (direct access)
+      if (data.isSuperAdmin) {
+        router.push("/super-admin")
+        router.refresh()
+        return
+      }
+
+      // Move to OTP verification step for regular users
       setStep("otp")
       setLoading(false)
     } catch (err) {

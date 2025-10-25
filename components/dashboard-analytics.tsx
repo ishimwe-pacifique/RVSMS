@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, AlertCircle, TrendingUp, MapPin, ArrowUpRight } from "lucide-react"
+import { Activity, AlertCircle, TrendingUp, MapPin, ArrowUpRight, Filter, Search } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { rwandaProvinces } from "@/lib/rwanda-locations"
 import {
   BarChart,
   Bar,
@@ -44,6 +48,13 @@ interface DashboardData {
   }
 }
 
+interface FilterState {
+  province: string
+  district: string
+  sector: string
+  search: string
+}
+
 const COLORS = ["#059669", "#0d9488", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"]
 const SEVERITY_COLORS = {
   mild: "#fbbf24",
@@ -55,6 +66,8 @@ const SEVERITY_COLORS = {
 export function DashboardAnalytics() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [animalFilters, setAnimalFilters] = useState<FilterState>({ province: "", district: "", sector: "", search: "" })
+  const [diseaseFilters, setDiseaseFilters] = useState<FilterState>({ province: "", district: "", sector: "", search: "" })
 
   useEffect(() => {
     fetchDashboardData()
@@ -90,6 +103,18 @@ export function DashboardAnalytics() {
 
   const healthPercentage =
     data.stats.totalAnimals > 0 ? Math.round((data.stats.healthyAnimals / data.stats.totalAnimals) * 100) : 0
+
+  // Helper function to get districts for selected province
+  const getDistrictsForProvince = (provinceName: string) => {
+    return rwandaProvinces.find(p => p.name === provinceName)?.districts || []
+  }
+
+  // Helper function to get sectors for selected district
+  const getSectorsForDistrict = (provinceName: string, districtName: string) => {
+    return rwandaProvinces
+      .find(p => p.name === provinceName)?.districts
+      .find(d => d.name === districtName)?.sectors || []
+  }
 
   return (
     <div className="space-y-6">
@@ -287,11 +312,15 @@ export function DashboardAnalytics() {
         )}
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity with Enhanced Tables */}
       <div className="grid lg:grid-cols-2 gap-6">
+        {/* Recent Animal Registrations Table */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Recent Animal Registrations</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-600" />
+              Recent Animal Registrations
+            </CardTitle>
             <Link href="/animals">
               <Button variant="ghost" size="sm" className="gap-1">
                 View All
@@ -300,24 +329,121 @@ export function DashboardAnalytics() {
             </Link>
           </CardHeader>
           <CardContent>
+            {/* Animal Filters */}
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search..."
+                    value={animalFilters.search}
+                    onChange={(e) => setAnimalFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={animalFilters.province || undefined} onValueChange={(value) => setAnimalFilters(prev => ({ ...prev, province: value || "", district: "", sector: "" }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Provinces" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rwandaProvinces.map((province) => (
+                      <SelectItem key={province.name} value={province.name}>{province.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={animalFilters.district || undefined} onValueChange={(value) => setAnimalFilters(prev => ({ ...prev, district: value || "", sector: "" }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Districts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {animalFilters.province && rwandaProvinces
+                      .find(p => p.name === animalFilters.province)?.districts
+                      .map((district) => (
+                        <SelectItem key={district.name} value={district.name}>{district.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Select value={animalFilters.sector || undefined} onValueChange={(value) => setAnimalFilters(prev => ({ ...prev, sector: value || "" }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Sectors" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {animalFilters.district && rwandaProvinces
+                      .find(p => p.name === animalFilters.province)?.districts
+                      .find(d => d.name === animalFilters.district)?.sectors
+                      .map((sector) => (
+                        <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setAnimalFilters({ province: "", district: "", sector: "", search: "" })}
+                  className="gap-2"
+                >
+                  <Filter className="w-4 h-4" />
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+
             {data.recentActivity.animals.length > 0 ? (
-              <div className="space-y-3">
-                {data.recentActivity.animals.map((animal) => (
-                  <Link key={animal._id} href={`/animals/${animal._id}`}>
-                    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
-                      <div>
-                        <p className="font-medium text-slate-900">{animal.animalId}</p>
-                        <p className="text-sm text-slate-600">
-                          {animal.species} - {animal.breed}
-                        </p>
-                        <p className="text-xs text-slate-500">Owner: {animal.ownerName}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">{new Date(animal.registeredDate).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Animal ID</TableHead>
+                      <TableHead>Species/Breed</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.recentActivity.animals
+                      .filter(animal => {
+                        const matchesSearch = !animalFilters.search || 
+                          (animal.animalId && animal.animalId.toLowerCase().includes(animalFilters.search.toLowerCase())) ||
+                          (animal.ownerName && animal.ownerName.toLowerCase().includes(animalFilters.search.toLowerCase())) ||
+                          (animal.species && animal.species.toLowerCase().includes(animalFilters.search.toLowerCase()))
+                        
+                        const matchesProvince = !animalFilters.province || animal.location?.province === animalFilters.province
+                        const matchesDistrict = !animalFilters.district || animal.location?.district === animalFilters.district
+                        const matchesSector = !animalFilters.sector || animal.location?.sector === animalFilters.sector
+                        
+                        return matchesSearch && matchesProvince && matchesDistrict && matchesSector
+                      })
+                      .map((animal) => (
+                        <TableRow key={animal._id} className="hover:bg-slate-50">
+                          <TableCell>
+                            <Link href={`/animals/${animal._id}`} className="font-medium text-emerald-600 hover:text-emerald-700">
+                              {animal.animalId}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{animal.species}</p>
+                              <p className="text-sm text-slate-500">{animal.breed}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{animal.ownerName}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <p className="font-semibold text-slate-900">{animal.location?.sector || 'N/A'}</p>
+                              <p className="text-slate-700">{animal.location?.district || 'N/A'}</p>
+                              <p className="text-sm text-slate-600">{animal.location?.province || 'N/A'}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-500">
+                            {new Date(animal.registeredDate).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
               </div>
             ) : (
               <p className="text-center py-8 text-slate-500 text-sm">No recent registrations</p>
@@ -325,9 +451,13 @@ export function DashboardAnalytics() {
           </CardContent>
         </Card>
 
+        {/* Recent Disease Reports Table */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Recent Disease Reports</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              Recent Disease Reports
+            </CardTitle>
             <Link href="/diseases">
               <Button variant="ghost" size="sm" className="gap-1">
                 View All
@@ -336,39 +466,128 @@ export function DashboardAnalytics() {
             </Link>
           </CardHeader>
           <CardContent>
+            {/* Disease Filters */}
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search..."
+                    value={diseaseFilters.search}
+                    onChange={(e) => setDiseaseFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={diseaseFilters.province || undefined} onValueChange={(value) => setDiseaseFilters(prev => ({ ...prev, province: value || "", district: "", sector: "" }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Provinces" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rwandaProvinces.map((province) => (
+                      <SelectItem key={province.name} value={province.name}>{province.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={diseaseFilters.district || undefined} onValueChange={(value) => setDiseaseFilters(prev => ({ ...prev, district: value || "", sector: "" }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Districts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {diseaseFilters.province && rwandaProvinces
+                      .find(p => p.name === diseaseFilters.province)?.districts
+                      .map((district) => (
+                        <SelectItem key={district.name} value={district.name}>{district.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Select value={diseaseFilters.sector || undefined} onValueChange={(value) => setDiseaseFilters(prev => ({ ...prev, sector: value || "" }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Sectors" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {diseaseFilters.district && rwandaProvinces
+                      .find(p => p.name === diseaseFilters.province)?.districts
+                      .find(d => d.name === diseaseFilters.district)?.sectors
+                      .map((sector) => (
+                        <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setDiseaseFilters({ province: "", district: "", sector: "", search: "" })}
+                  className="gap-2"
+                >
+                  <Filter className="w-4 h-4" />
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+
             {data.recentActivity.diseases.length > 0 ? (
-              <div className="space-y-3">
-                {data.recentActivity.diseases.map((disease) => (
-                  <Link key={disease._id} href={`/diseases/${disease._id}`}>
-                    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-slate-900">{disease.reportId}</p>
-                          <Badge
-                            className={
-                              disease.severity === "critical"
-                                ? "bg-red-200 text-red-900 border-red-300"
-                                : disease.severity === "severe"
-                                  ? "bg-red-100 text-red-700 border-red-200"
-                                  : disease.severity === "moderate"
-                                    ? "bg-orange-100 text-orange-700 border-orange-200"
-                                    : "bg-yellow-100 text-yellow-700 border-yellow-200"
-                            }
-                          >
-                            {disease.severity}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-600">{disease.diseaseName}</p>
-                        <p className="text-xs text-slate-500">
-                          {disease.location.sector}, {disease.location.district}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">{new Date(disease.reportedDate).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Report ID</TableHead>
+                      <TableHead>Disease</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Severity</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.recentActivity.diseases
+                      .filter(disease => {
+                        const matchesSearch = !diseaseFilters.search || 
+                          disease.reportId.toLowerCase().includes(diseaseFilters.search.toLowerCase()) ||
+                          disease.diseaseName.toLowerCase().includes(diseaseFilters.search.toLowerCase())
+                        
+                        const matchesProvince = !diseaseFilters.province || disease.location?.province === diseaseFilters.province
+                        const matchesDistrict = !diseaseFilters.district || disease.location?.district === diseaseFilters.district
+                        const matchesSector = !diseaseFilters.sector || disease.location?.sector === diseaseFilters.sector
+                        
+                        return matchesSearch && matchesProvince && matchesDistrict && matchesSector
+                      })
+                      .map((disease) => (
+                        <TableRow key={disease._id} className="hover:bg-slate-50">
+                          <TableCell>
+                            <Link href={`/diseases/${disease._id}`} className="font-medium text-red-600 hover:text-red-700">
+                              {disease.reportId}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="font-medium">{disease.diseaseName}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <p>{disease.location.sector}</p>
+                              <p className="text-slate-500">{disease.location.district}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={
+                                disease.severity === "critical"
+                                  ? "bg-red-100 text-red-800 border-red-200"
+                                  : disease.severity === "severe"
+                                    ? "bg-orange-100 text-orange-800 border-orange-200"
+                                    : disease.severity === "moderate"
+                                      ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                                      : "bg-green-100 text-green-800 border-green-200"
+                              }
+                            >
+                              {disease.severity}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-500">
+                            {new Date(disease.reportedDate).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
               </div>
             ) : (
               <p className="text-center py-8 text-slate-500 text-sm">No recent reports</p>

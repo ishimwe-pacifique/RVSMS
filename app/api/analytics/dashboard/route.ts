@@ -153,6 +153,11 @@ export async function GET() {
           breed: animal.breed,
           ownerName: animal.ownerName,
           registeredDate: animal.registeredDate,
+          location: {
+            province: animal.province,
+            district: animal.district,
+            sector: animal.sector,
+          },
         })),
         diseases: recentDiseaseReports.map((disease) => ({
           _id: disease._id.toString(),

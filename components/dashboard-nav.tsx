@@ -22,6 +22,7 @@ export function DashboardNav({ user }: { user: { name: string; email: string; ro
     { href: "/animals", label: "Animals", icon: Activity },
     { href: "/diseases", label: "Diseases", icon: AlertCircle },
     { href: "/monitoring", label: "Monitoring", icon: MapPin },
+    ...(user.role === "super_admin" ? [{ href: "/super-admin", label: "Super Admin", icon: BarChart3 }] : []),
   ]
 
   return (

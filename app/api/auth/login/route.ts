@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getDatabase } from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
 import { sendOtpEmail } from "@/lib/email"
+import { createToken } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 
 function generateOtp() {
@@ -14,6 +15,33 @@ export async function POST(request: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+    }
+
+    // Check for superadmin credentials
+    const superAdminEmail = process.env.SUPERADMIN_EMAIL
+    const superAdminPassword = process.env.SUPERADMIN_PASSWORD
+
+    if (email === superAdminEmail && password === superAdminPassword) {
+      // Direct login for superadmin without OTP
+      const token = await createToken({
+        id: "superadmin",
+        email: superAdminEmail,
+        name: "Super Admin",
+        role: "super_admin",
+        sector: "National",
+        district: "All",
+        province: "All",
+      })
+
+      const response = NextResponse.json({ success: true, isSuperAdmin: true })
+      response.cookies.set("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+      })
+
+      return response
     }
 
     const db = await getDatabase()
